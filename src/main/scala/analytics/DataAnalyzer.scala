@@ -26,13 +26,11 @@ The statistics we want to compute for each customer are:
  3. What is the number of unique users per account in the last 1, 3, 7, 14, 30, 90, 180, 365 days
 
  */
-class DataAnalyzer extends Analytics{
+case class DataAnalyzer( session: SparkSession, dataFrameReader: DataFrameReader ) extends Analytics{
 
   import DataAnalyzer.logger
 
   val configuration = new Configuration
-
-  val ( session, dataFrameReader ) = createSparkSession
 
   def calculateStats( daysBack: Int ) = {
 
@@ -152,9 +150,6 @@ class DataAnalyzer extends Analytics{
 object DataAnalyzer {
 
   @transient val logger = Logger.getLogger( getClass )
-  def apply() : DataAnalyzer = new DataAnalyzer()
-
-
 
   def main(args: Array[String]) {
 
@@ -162,10 +157,9 @@ object DataAnalyzer {
     val path = "in/Clickstream"
 
   // val date = LocalDate.parse("2019-12-06")
-
-    val dataAnalyzer = DataAnalyzer.apply()
-    val cc = dataAnalyzer.getClientsList( s"$path/*")
-    dataAnalyzer.analyze( "in/Clickstream", ranges )
+    val session = SparkSession.builder().appName("Data Analyzer").master("local[1]").getOrCreate()
+      DataAnalyzer( session, session.read ).analyze( path, ranges )
+//    dataAnalyzer.analyze( "in/Clickstream", ranges )
 
     //  logger.info( s"Processing client - $client")
 
