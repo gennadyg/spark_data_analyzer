@@ -25,6 +25,27 @@ The statistics we want to compute for each customer are:
  2. What is the number of modules used per user per account in the last 1, 3, 7, 14, 30, 90,  180, 365 days
  3. What is the number of unique users per account in the last 1, 3, 7, 14, 30, 90, 180, 365 days
 
+What architecture do you suggest that will support those requirements?
+
+ - EMR/Data Proc Spark cluster that created by scheduler and keep results on S3
+
+How will you schedule this computation?
+
+ - Will use some flow management software: AirFlow, chrontab, etc.
+
+How will you do the actual computation?
+
+  - Will query data based on required time periods and will aggregate timw window, to avoid duplicated data reads
+
+Where will you keep the results?
+
+  - Distributed storage - S3 or some distributed DB, depends on requirements.
+
+ow will you make sure the system can handle up to 1 year of data in a timely manner?
+2. How is the Activity and Module Aggregation calculated?
+Write a spark program that shows that.
+3. How is the number of unique users calculated?
+
  */
 case class DataAnalyzer( session: SparkSession, dataFrameReader: DataFrameReader ) extends Analytics{
 

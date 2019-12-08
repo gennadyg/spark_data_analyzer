@@ -12,7 +12,15 @@ trait Analytics {
 
   @transient val logger = Logger.getLogger( getClass )
 
-
+  /**
+   *
+   * @param path  - path clients directory
+   * @param session - spark session
+   * @param dataFrame - current data frame
+   * @param clientName - client name
+   * @param currentRange - to date
+   * @return
+   */
   def analyzeNumOfActivities( path: String, session: SparkSession, dataFrame: DataFrame, clientName: String, currentRange: Int  ) = {
 
     val resultsPath = s"$path/$clientName/results/${LocalDate.now.toString}/activities"
