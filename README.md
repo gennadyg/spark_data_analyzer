@@ -25,3 +25,5 @@
 
 ### How is the number of unique users calculated?
 
+SELECT COUNT(DISTINCT(user_id)),user_id, account_id FROM analytics group by account_id, user_id
+
