@@ -43,6 +43,50 @@ object Utils{
   }
 
   /**
+   *
+   * @param path
+   * @return
+   */
+  def isDirectory( path : String ): Boolean = {
+
+    Try {
+
+      FileSystem.get(URI.create( path ), new Configuration() ).isDirectory(new Path(path))
+
+    } match {
+      case Success( value ) => value
+      case _ => {
+        logger.info(s"Directory desn't exists - $path")
+        false
+      }
+    }
+  }
+  /**
+   * Generates string of comma separated dates
+   *
+   * @param path - path to data repository
+   *
+   * @return string of comma separated dates
+   */
+  def generateSetOfDates( path: String, from: LocalDate, to: LocalDate ): Set[String] = {
+    Try {
+      val list = FileSystem.get(URI.create(path), configuration).globStatus(new Path(s"$path/{2019,2020}*"), RegexPathFilter(from, to))
+
+      list.map(validFile => {
+        logger.info(s"Found valid folder/date ${validFile.getPath.getName}") ///${validFile.getPath.toUri.getRawPath}
+        validFile.getPath.getName
+      }).toSet[String]
+
+    } match {
+      case Success(value) => value
+      case _ => {
+        logger.error(s"Failed to generate list of date for path ${path}")
+        Set.empty
+      }
+    }
+
+  }
+  /**
    * Generates string of comma separated dates
    *
    * @param path - path to data repository

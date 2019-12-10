@@ -47,21 +47,21 @@ Write a spark program that shows that.
 3. How is the number of unique users calculated?
 
  */
-case class DataAnalyzer( session: SparkSession, dataFrameReader: DataFrameReader ) extends Analytics{
+case class DataAnalyzer( session: SparkSession, dataFrameReader: DataFrameReader ) extends Analytics {
 
   import DataAnalyzer.logger
 
   val configuration = new Configuration
 
-  def calculateStats( daysBack: Int ) = {
+  def calculateStats(daysBack: Int) = {
 
     val to = LocalDate.now
-    val from = to.minusDays( daysBack )
+    val from = to.minusDays(daysBack)
 
-    Try{
+    Try {
 
-    }match {
-      case Success( value ) => value
+    } match {
+      case Success(value) => value
       case _ => {
         logger.error(s"Failed to calculate date with  offset - ${daysBack}")
         false
@@ -70,25 +70,25 @@ case class DataAnalyzer( session: SparkSession, dataFrameReader: DataFrameReader
 
 
   }
+
   def createSparkSession = {
 
     val session = SparkSession.builder().appName("Data Analyzer").master("local[1]").getOrCreate()
-    ( session, session.read )
+    (session, session.read)
   }
 
   /**
    *
    * @param dataFrameReader - dataframes reader
-   * @param clientRepoPath - path to client repository
+   * @param clientRepoPath  - path to client repository
    * @param dates
-   *
    * @return dataframe - actual data frame with data
    */
-  def createDataFrame( dataFrameReader: DataFrameReader, clientRepoPath: String, dates: String ) = {
+  def createDataFrame(dataFrameReader: DataFrameReader, clientRepoPath: String, dates: String) = {
 
     dataFrameReader
       .option("multiLine", value = true)
-   //  .option("mode", "PERMISSIVE")
+      //  .option("mode", "PERMISSIVE")
       .json(s"$clientRepoPath\\{$dates}\\*")
     //  .withColumn("filename", input_file_name )
   }
@@ -96,17 +96,15 @@ case class DataAnalyzer( session: SparkSession, dataFrameReader: DataFrameReader
   /**
    *
    * @param path - valida path to data repository
-   *  @return
+   * @return
    */
-  def getClientsList( path : String ): List[String] = {
+  def getClientsList(path: String): List[String] = {
 
-    FileSystem.get( URI.create( path ), configuration ).globStatus( new Path( path ))
-      .filter( fileStatus => fileStatus.isDirectory )
-      .map( fileStatus => fileStatus.getPath.getName )
+    FileSystem.get(URI.create(path), configuration).globStatus(new Path(path))
+      .filter(fileStatus => fileStatus.isDirectory)
+      .map(fileStatus => fileStatus.getPath.getName)
       .toList
   }
-
-
 
   /**
    *
@@ -114,46 +112,176 @@ case class DataAnalyzer( session: SparkSession, dataFrameReader: DataFrameReader
    * @param ranges
    * @return
    */
-  def analyze( path: String, ranges: Array[Int] ) = {
+  def analyze( path: String, yearly: DataFrame, ranges: Array[Int] ) = {
 
-    Try{
-
-      getClientsList( s"$path/*").map( client => {
-      logger.info( s"Processing client - $client")
-
+    Try {
       val to = LocalDate.now
-      var globalDataFrame: Option[sql.DataFrame] = None
+      getClientsList(s"$path/*").map(client => {
+        logger.info(s"Processing client - $client")
 
-      for( currentRange <- ranges ){
-        val currentFrom = LocalDate.now.minusDays( currentRange )
-        logger.info(s"Calculating data frame from $currentFrom to $to")
+        val to = LocalDate.now
+        var globalDataFrame: Option[sql.DataFrame] = None
 
-        val clientRepoPath = s"$path/$client/"
-        val dates = Utils.generateListOfDates( clientRepoPath, currentFrom, to )
-        if( dates.isEmpty == false ){
-          val dataFrame = createDataFrame( dataFrameReader, clientRepoPath, dates )
-          dataFrame.printSchema()
-          dataFrame.show
+        for (currentRange <- ranges) {
+          val currentFrom = LocalDate.now.minusDays(currentRange)
+          logger.info(s"Calculating data frame from $currentFrom to $to")
 
-          dataFrame.createOrReplaceTempView("analytics")
-          analyzeNumOfActivities( path, session, dataFrame, client, currentRange  )
-          analyzeNumOfUniqueUsers( path, session, dataFrame, client, currentRange )
-          analyzeNumOfModules( path, session, dataFrame, client, currentRange )
-          //dataFrame.show()
+          val clientRepoPath = s"$path/$client/"
+          val dates = Utils.generateListOfDates(clientRepoPath, currentFrom, to)
+          if (dates.isEmpty == false) {
+            val dataFrame = createDataFrame(dataFrameReader, clientRepoPath, dates)
+            dataFrame.printSchema()
+            dataFrame.show
 
-          globalDataFrame match {
-            case Some(frame) => {
-              globalDataFrame = Some( frame.union( dataFrame ))
-              globalDataFrame.get.show()
-            }
-            case None => globalDataFrame = Some(dataFrame)
+            yearly.createOrReplaceTempView("analytics")
+
+            analyzeNumOfActivities(path, session, dataFrame, client, currentFrom.toString, to.toString, currentRange )
+            analyzeNumOfUniqueUsers(path, session, dataFrame, client, currentFrom.toString, to.toString, currentRange )
+            analyzeNumOfModules(path, session, dataFrame, client, currentFrom.toString, to.toString, currentRange )
+            //dataFrame.show()
+
+          } else {
+            logger.warn(s"No dates were found for $client during[$currentFrom -  $to]")
           }
-        }else{
-          logger.warn(s"No dates were found for $client during[$currentFrom -  $to]")
         }
+      })
+    } match {
+      case Success(value) => value
+      case Failure(ex) => {
+        logger.error(s"Failed process path - ${path}", ex)
+        false
       }
+    }
+
+  }
+  /**
+   *
+   * @param path
+   * @param ranges
+   * @return
+   */
+  def analyzeOld(path: String, ranges: Array[Int]) = {
+
+    Try {
+
+      getClientsList(s"$path/*").map(client => {
+        logger.info(s"Processing client - $client")
+
+        val to = LocalDate.now
+        var globalDataFrame: Option[sql.DataFrame] = None
+
+        for (currentRange <- ranges) {
+          val currentFrom = LocalDate.now.minusDays(currentRange)
+          logger.info(s"Calculating data frame from $currentFrom to $to")
+
+          val clientRepoPath = s"$path/$client/"
+          val dates = Utils.generateListOfDates(clientRepoPath, currentFrom, to)
+          if (dates.isEmpty == false) {
+            val dataFrame = createDataFrame(dataFrameReader, clientRepoPath, dates)
+            dataFrame.printSchema()
+            dataFrame.show
+
+            dataFrame.createOrReplaceTempView("analytics")
+            analyzeNumOfActivities(path, session, dataFrame, client, currentRange)
+            analyzeNumOfUniqueUsers(path, session, dataFrame, client, currentRange)
+            analyzeNumOfModules(path, session, dataFrame, client, currentRange)
+            //dataFrame.show()
+
+            globalDataFrame match {
+              case Some(frame) => {
+                globalDataFrame = Some(frame.union(dataFrame))
+                globalDataFrame.get.show()
+              }
+              case None => globalDataFrame = Some(dataFrame)
+            }
+          } else {
+            logger.warn(s"No dates were found for $client during[$currentFrom -  $to]")
+          }
+        }
       })
       session.close()
+
+    } match {
+      case Success(value) => value
+      case Failure(ex) => {
+        logger.error(s"Failed process path - ${path}", ex)
+        false
+      }
+    }
+  }
+
+  import org.apache.spark.sql.functions.{udf, _}
+
+  def funFileName: ((String) => String) = { (s) => (s.split("/")(9)) }
+
+  def setName: ((String) => String) = { (s) => (s.split("/")(8)) }
+
+  def createDailyDataFrame(dataFrameReader: DataFrameReader, clientRepoPath: String, date: String, client: String ) = {
+    val myFileName = udf(funFileName)
+    val clientName = udf(setName)
+    dataFrameReader
+      .option("multiLine", value = true)
+      //  .option("mode", "PERMISSIVE")
+      .json(s"$clientRepoPath\\{$date}\\*")
+      .withColumn("date", myFileName(input_file_name()))
+      .withColumn("client", clientName(input_file_name()))
+      .select( to_date(col("date"),"yyyy-MM-dd").as("to_date"))
+  }
+
+   def loadYearlyDataFrame( clientRepoPath: String, from: String, to: String ): Option[DataFrame] = {
+     val todayDF = createDailyDataFrame( dataFrameReader, clientRepoPath, LocalDate.now.minusDays(1).toString, LocalDate.now.toString )
+     if( Utils.isDirectory(s"$clientRepoPath\\$from-$to" )){
+
+        val yearlyDF = dataFrameReader
+           .option("header", "true")
+           .option("mode", "DROPMALFORMED")
+           //  .option("mode", "PERMISSIVE")
+           .csv(s"$clientRepoPath\\$from-$to\\*.csv")
+
+
+         val dfWithoutFirstDay = session.sql(s"SELECT * FROM yearly where date > ${LocalDate.now.minusDays(365)}")
+         val df = dfWithoutFirstDay.join( todayDF )
+         Some(df)
+
+     }else{
+         None
+     }
+  }
+
+  /**
+   *
+   * @param path
+   * @return
+   */
+  def buildYearDF( path: String  ) = {
+
+    var globalDataFrame: Option[sql.DataFrame] = None
+    Try{
+
+      val clientList = getClientsList( s"$path/*")
+
+      clientList.map( client => {
+        logger.info( s"Processing client - $client")
+
+         val clientRepoPath = s"$path/$client/"
+        val dates = Utils.generateSetOfDates( clientRepoPath, LocalDate.now.minusDays(365), LocalDate.now )
+        for( current <- 1  to 365 ){
+
+          val currentDate = LocalDate.now.minusDays( current )
+          if( dates.contains(currentDate.toString )){
+            val dailyDataFrame = createDailyDataFrame( dataFrameReader, clientRepoPath, currentDate.toString, client )
+            dailyDataFrame.show()
+
+            globalDataFrame match {
+              case Some(frame) => {
+                globalDataFrame = Some(frame.union(dailyDataFrame))
+                globalDataFrame.get.show()
+              }
+              case None => globalDataFrame = Some(dailyDataFrame)
+            }
+          }
+        }
+      })
 
     } match {
       case Success( value ) => value
@@ -162,11 +290,11 @@ case class DataAnalyzer( session: SparkSession, dataFrameReader: DataFrameReader
         false
       }
     }
-
-
+    globalDataFrame
   }
-
 }
+
+
 
 object DataAnalyzer {
 
@@ -174,19 +302,38 @@ object DataAnalyzer {
 
   def main(args: Array[String]) {
 
-    val ranges = Array( 1, 3, 7, 14, 30, 90, 180, 365 )
-    val path = "in/Clickstream"
-
-  // val date = LocalDate.parse("2019-12-06")
     val session = SparkSession.builder().appName("Data Analyzer").master("local[1]").getOrCreate()
-      DataAnalyzer( session, session.read ).analyze( path, ranges )
-//    dataAnalyzer.analyze( "in/Clickstream", ranges )
+    try{
+      val ranges = Array( 1, 3, 7, 14, 30, 90, 180, 365 )
+      val path = "in/Clickstream"
 
-    //  logger.info( s"Processing client - $client")
+      // val date = LocalDate.parse("2019-12-06")
+      val dataAnalyzer = DataAnalyzer( session, session.read )
 
-    /*dataFrame.printSchema()
-    dataFrame.show()
-    dataFrame.createOrReplaceTempView("people")*/
+      // Build yearly data frame
+
+      dataAnalyzer.loadYearlyDataFrame("in", LocalDate.now.minusDays(366).toString, LocalDate.now.toString) match {
+        case Some(yearlyDF) => {
+          dataAnalyzer.analyze( path, yearlyDF, ranges )
+        }
+        case None => {
+
+          dataAnalyzer.buildYearDF(path) match {
+            case Some(yearlyDF) => {
+
+              dataAnalyzer.persist( s"in/${LocalDate.now.minusDays(365).toString}-${LocalDate.now.toString}", yearlyDF)
+              dataAnalyzer.analyze( path, yearlyDF, ranges )
+            }
+            case None =>
+          }
+        }
+      }
+    }catch{
+      case ex: Exception => logger.error("Failed to process yearly data")
+    }finally{
+
+      session.close()
+    }
 
 
   }
