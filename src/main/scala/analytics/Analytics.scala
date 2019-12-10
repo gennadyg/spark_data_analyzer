@@ -25,7 +25,7 @@ trait Analytics {
 
     val resultsPath = s"$path/$clientName/results/${LocalDate.now.toString}/activities"
     Try {
-      val activitiesStats = session.sql(s"SELECT count(activity),user_id, account_id, activity FROM analytics group by user_id, account_id, module, activity where to_date < $to and to_date > $from")
+      val activitiesStats = session.sql(s"SELECT count(DISTINCT(activity)),user_id, account_id, activity FROM analytics where to_date < $to and to_date > $from group by user_id, account_id, module, activity")
       activitiesStats.show()
       logger.info( activitiesStats.explain(true))
 

@@ -182,9 +182,9 @@ case class DataAnalyzer( session: SparkSession, dataFrameReader: DataFrameReader
             dataFrame.show
 
             dataFrame.createOrReplaceTempView("analytics")
-            analyzeNumOfActivities(path, session, dataFrame, client, currentRange)
+            /*analyzeNumOfActivities(path, session, dataFrame, client, currentRange)
             analyzeNumOfUniqueUsers(path, session, dataFrame, client, currentRange)
-            analyzeNumOfModules(path, session, dataFrame, client, currentRange)
+            analyzeNumOfModules(path, session, dataFrame, client, currentRange)*/
             //dataFrame.show()
 
             globalDataFrame match {
@@ -216,7 +216,7 @@ case class DataAnalyzer( session: SparkSession, dataFrameReader: DataFrameReader
 
   def setName: ((String) => String) = { (s) => (s.split("/")(8)) }
 
-  def createDailyDataFrame(dataFrameReader: DataFrameReader, clientRepoPath: String, date: String, client: String ) = {
+  def createDailyDataFrame( clientRepoPath: String, date: String, client: String ) = {
     val myFileName = udf(funFileName)
     val clientName = udf(setName)
     dataFrameReader
@@ -225,11 +225,11 @@ case class DataAnalyzer( session: SparkSession, dataFrameReader: DataFrameReader
       .json(s"$clientRepoPath\\{$date}\\*")
       .withColumn("date", myFileName(input_file_name()))
       .withColumn("client", clientName(input_file_name()))
-      .select( to_date(col("date"),"yyyy-MM-dd").as("to_date"))
+      //.select( to_date(col("date"),"yyyy-MM-dd").as("to_date"))
   }
 
    def loadYearlyDataFrame( clientRepoPath: String, from: String, to: String ): Option[DataFrame] = {
-     val todayDF = createDailyDataFrame( dataFrameReader, clientRepoPath, LocalDate.now.minusDays(1).toString, LocalDate.now.toString )
+     val todayDF = createDailyDataFrame( clientRepoPath, LocalDate.now.minusDays(1).toString, LocalDate.now.toString )
      if( Utils.isDirectory(s"$clientRepoPath\\$from-$to" )){
 
         val yearlyDF = dataFrameReader
@@ -238,10 +238,11 @@ case class DataAnalyzer( session: SparkSession, dataFrameReader: DataFrameReader
            //  .option("mode", "PERMISSIVE")
            .csv(s"$clientRepoPath\\$from-$to\\*.csv")
 
+        yearlyDF.createOrReplaceTempView("analytics")
+        val dfWithoutFirstDay = session.sql(s"SELECT * FROM analytics where date > ${LocalDate.now.minusDays(365)}")
+        val df = dfWithoutFirstDay.join( todayDF )
 
-         val dfWithoutFirstDay = session.sql(s"SELECT * FROM yearly where date > ${LocalDate.now.minusDays(365)}")
-         val df = dfWithoutFirstDay.join( todayDF )
-         Some(df)
+        Some(df)
 
      }else{
          None
@@ -269,7 +270,7 @@ case class DataAnalyzer( session: SparkSession, dataFrameReader: DataFrameReader
 
           val currentDate = LocalDate.now.minusDays( current )
           if( dates.contains(currentDate.toString )){
-            val dailyDataFrame = createDailyDataFrame( dataFrameReader, clientRepoPath, currentDate.toString, client )
+            val dailyDataFrame = createDailyDataFrame( clientRepoPath, currentDate.toString, client )
             dailyDataFrame.show()
 
             globalDataFrame match {

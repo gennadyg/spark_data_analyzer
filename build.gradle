@@ -21,29 +21,12 @@ dependencies {
     compile group: 'org.apache.spark', name: 'spark-sql_2.11', version: '2.4.4'
     compile group: 'org.scala-lang', name: 'scala-library', version: '2.11.11'
 
-    // https://mvnrepository.com/artifact/com.outr/hasher
-    compile group: 'com.outr', name: 'hasher_2.11', version: '1.2.1'
-    // https://mvnrepository.com/artifact/org.scalatest/scalatest
-// https://mvnrepository.com/artifact/org.scalatest/scalatest
     testCompile group: 'org.scalatest', name: 'scalatest_2.11', version: '3.0.5'
 
 
-    //compile group: 'org.scalamock', name: 'scalamock-scalatest-support', version: '3.6.0'
-    // https://mvnrepository.com/artifact/org.scalatest/scalatest-funsuite
-  //  compile group: 'org.scalatest', name: 'scalatest-funsuite_2.13', version: '3.2.0-M2'
-
-    //  "org.scalamock" %% "scalamock-scalatest-support" % "3.6.0" % "test"
-    // https://mvnrepository.com/artifact/com.github.seancfoley/ipaddress
-    //compile group: 'com.github.seancfoley', name: 'ipaddress', version: '5.0.2'
-
 
 }
 
-configurations.all {
-    resolutionStrategy {
-        force 'com.google.guava:guava:12.0.1'
-    }
-}
 
 compileScala.targetCompatibility = "1.8"
 compileScala.sourceCompatibility = "1.8"
