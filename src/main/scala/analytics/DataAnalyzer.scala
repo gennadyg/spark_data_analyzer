@@ -154,61 +154,6 @@ case class DataAnalyzer( session: SparkSession, dataFrameReader: DataFrameReader
     }
 
   }
-  /**
-   *
-   * @param path
-   * @param ranges
-   * @return
-   */
-  def analyzeOld(path: String, ranges: Array[Int]) = {
-
-    Try {
-
-      getClientsList(s"$path/*").map(client => {
-        logger.info(s"Processing client - $client")
-
-        val to = LocalDate.now
-        var globalDataFrame: Option[sql.DataFrame] = None
-
-        for (currentRange <- ranges) {
-          val currentFrom = LocalDate.now.minusDays(currentRange)
-          logger.info(s"Calculating data frame from $currentFrom to $to")
-
-          val clientRepoPath = s"$path/$client/"
-          val dates = Utils.generateListOfDates(clientRepoPath, currentFrom, to)
-          if (dates.isEmpty == false) {
-            val dataFrame = createDataFrame(dataFrameReader, clientRepoPath, dates)
-            dataFrame.printSchema()
-            dataFrame.show
-
-            dataFrame.createOrReplaceTempView("analytics")
-            /*analyzeNumOfActivities(path, session, dataFrame, client, currentRange)
-            analyzeNumOfUniqueUsers(path, session, dataFrame, client, currentRange)
-            analyzeNumOfModules(path, session, dataFrame, client, currentRange)*/
-            //dataFrame.show()
-
-            globalDataFrame match {
-              case Some(frame) => {
-                globalDataFrame = Some(frame.union(dataFrame))
-                globalDataFrame.get.show()
-              }
-              case None => globalDataFrame = Some(dataFrame)
-            }
-          } else {
-            logger.warn(s"No dates were found for $client during[$currentFrom -  $to]")
-          }
-        }
-      })
-      session.close()
-
-    } match {
-      case Success(value) => value
-      case Failure(ex) => {
-        logger.error(s"Failed process path - ${path}", ex)
-        false
-      }
-    }
-  }
 
   import org.apache.spark.sql.functions.{udf, _}
 
@@ -225,10 +170,14 @@ case class DataAnalyzer( session: SparkSession, dataFrameReader: DataFrameReader
       .json(s"$clientRepoPath\\{$date}\\*")
       .withColumn("date", myFileName(input_file_name()))
       .withColumn("client", clientName(input_file_name()))
-      //.select( to_date(col("date"),"yyyy-MM-dd").as("to_date"))
+      .withColumn( "to_date", to_date(col("date"),"yyyy-MM-dd"))
   }
 
+
+    // First creates today dataframe. Then is trying to load dataframe till yesterday if exists, if yes join it with today data.
+
    def loadYearlyDataFrame( clientRepoPath: String, from: String, to: String ): Option[DataFrame] = {
+
      val todayDF = createDailyDataFrame( clientRepoPath, LocalDate.now.minusDays(1).toString, LocalDate.now.toString )
      if( Utils.isDirectory(s"$clientRepoPath\\$from-$to" )){
 
@@ -308,11 +257,11 @@ object DataAnalyzer {
       val ranges = Array( 1, 3, 7, 14, 30, 90, 180, 365 )
       val path = "in/Clickstream"
 
-      // val date = LocalDate.parse("2019-12-06")
+
       val dataAnalyzer = DataAnalyzer( session, session.read )
 
       // Build yearly data frame
-
+      // First try to load pre-calculated data fram
       dataAnalyzer.loadYearlyDataFrame("in", LocalDate.now.minusDays(366).toString, LocalDate.now.toString) match {
         case Some(yearlyDF) => {
           dataAnalyzer.analyze( path, yearlyDF, ranges )
